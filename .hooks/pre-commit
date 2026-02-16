@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -e
+
+# Stash unstaged changes so checks run against staged code only.
+# If there's nothing to stash, skip the stash/pop.
+STASHED=false
+if ! git diff --quiet; then
+    git stash push --quiet --keep-index -m "pre-commit stash"
+    STASHED=true
+fi
+
+restore() {
+    if [ "$STASHED" = true ]; then
+        git stash pop --quiet
+    fi
+}
+trap restore EXIT
+
+# Only run Rust checks if .rs or Cargo files are staged.
+RS_STAGED=$(git diff --cached --name-only -- '*.rs' 'Cargo.toml' 'Cargo.lock')
+if [ -z "$RS_STAGED" ]; then
+    echo "── no Rust files staged, skipping ──"
+    exit 0
+fi
+
+echo "── fmt ──"
+cargo fmt --check
+
+echo "── clippy ──"
+cargo clippy -- -D warnings
+
+echo "── test ──"
+cargo test
