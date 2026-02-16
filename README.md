@@ -21,12 +21,16 @@ bolo <LANG> [PATH] [OPTIONS]
 
 ### Options
 
-| Flag                | Description                           |
-| ------------------- | ------------------------------------- |
-| `-o <PATH>`         | Output directory (default: stdout)    |
-| `-f, --force`       | Overwrite existing output             |
-| `--no-ignore`       | Include files ignored by `.gitignore` |
-| `-m, --mode <MODE>` | Limit output to a specific DAG mode   |
+| Flag                | Description                             |
+| ------------------- | --------------------------------------- |
+| `-o <PATH>`         | Output directory (default: stdout)      |
+| `-f, --force`       | Overwrite existing output               |
+| `--no-ignore`       | Include files ignored by `.gitignore`   |
+| `-m, --mode <MODE>` | Limit output to a specific DAG mode     |
+| `-j, --jobs <N>`    | Number of parallel threads (default: 1) |
+| `--dry-run`         | Show what would be done, without output |
+| `-h, --help`        | Print help                              |
+| `-V, --version`     | Print version                           |
 
 ### Examples
 
