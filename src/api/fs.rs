@@ -1,3 +1,4 @@
+use crate::error::BoloError;
 use ignore::WalkBuilder;
 use std::fs;
 use std::io::{self, Write};
@@ -15,28 +16,37 @@ pub struct File {
 
 impl File {
     /// Read the file contents into a string.
-    pub fn read(&self) -> io::Result<String> {
-        fs::read_to_string(&self.path)
+    pub fn read(&self) -> Result<String, BoloError> {
+        fs::read_to_string(&self.path).map_err(|e| BoloError::Read {
+            path: self.path.clone(),
+            reason: e.to_string(),
+        })
     }
 }
 
 // ── Validation ─────────────────────────────────────────────────────
 
-pub fn validate_path(path: &Path) -> io::Result<()> {
-    let meta = fs::metadata(path)?;
+pub fn validate_path(path: &Path) -> Result<(), BoloError> {
+    let meta = fs::metadata(path).map_err(|e| BoloError::InvalidPath {
+        path: path.to_path_buf(),
+        reason: e.to_string(),
+    })?;
     if !meta.is_file() && !meta.is_dir() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            format!("{} is not a file or directory", path.display()),
-        ));
+        return Err(BoloError::InvalidPath {
+            path: path.to_path_buf(),
+            reason: "not a file or directory".into(),
+        });
     }
     Ok(())
 }
 
 // ── Discovery ──────────────────────────────────────────────────────
 
-pub fn walk_dir(path: &Path, ext: &str, no_ignore: bool) -> io::Result<Vec<File>> {
-    let root = path.canonicalize()?;
+pub fn walk_dir(path: &Path, ext: &str, no_ignore: bool) -> Result<Vec<File>, BoloError> {
+    let root = path.canonicalize().map_err(|e| BoloError::Walk {
+        path: path.to_path_buf(),
+        reason: e.to_string(),
+    })?;
 
     if root.is_file() {
         return if matches_ext(&root, ext) {
@@ -45,17 +55,20 @@ pub fn walk_dir(path: &Path, ext: &str, no_ignore: bool) -> io::Result<Vec<File>
                 path: root,
             }])
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("file does not have a .{ext} extension"),
-            ))
+            Err(BoloError::Walk {
+                path: root,
+                reason: format!("file does not have a .{ext} extension"),
+            })
         };
     }
 
     let mut files = Vec::new();
 
     for entry in WalkBuilder::new(&root).git_ignore(!no_ignore).build() {
-        let entry = entry.map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let entry = entry.map_err(|e| BoloError::Walk {
+            path: root.clone(),
+            reason: e.to_string(),
+        })?;
 
         let Some(ft) = entry.file_type() else {
             continue;
@@ -91,19 +104,32 @@ pub fn ensure_dir(path: &Path) -> io::Result<()> {
     fs::create_dir_all(path)
 }
 
-pub fn write_file(path: &Path, content: &str, mkdir: bool) -> io::Result<()> {
+pub fn write_file(path: &Path, content: &str, mkdir: bool) -> Result<(), BoloError> {
     let parent = match path.parent() {
         Some(p) => p,
         None => Path::new("."),
     };
 
     if mkdir {
-        ensure_dir(parent)?;
+        ensure_dir(parent).map_err(|e| BoloError::Write {
+            path: path.to_path_buf(),
+            reason: e.to_string(),
+        })?;
     }
 
-    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
-    tmp.write_all(content.as_bytes())?;
-    tmp.persist(path).map_err(|e| e.error)?;
+    let mut tmp = tempfile::NamedTempFile::new_in(parent).map_err(|e| BoloError::Write {
+        path: path.to_path_buf(),
+        reason: e.to_string(),
+    })?;
+    tmp.write_all(content.as_bytes())
+        .map_err(|e| BoloError::Write {
+            path: path.to_path_buf(),
+            reason: e.to_string(),
+        })?;
+    tmp.persist(path).map_err(|e| BoloError::Write {
+        path: path.to_path_buf(),
+        reason: e.error.to_string(),
+    })?;
     Ok(())
 }
 
@@ -134,7 +160,7 @@ mod tests {
     fn validate_missing_path() {
         let dir = TempDir::new().unwrap();
         let err = validate_path(&dir.path().join("nope")).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::NotFound);
+        assert!(matches!(err, BoloError::InvalidPath { .. }));
     }
 
     // ── walk_dir ──
@@ -204,7 +230,7 @@ mod tests {
         fs::write(&file, "").unwrap();
 
         let err = walk_dir(&file, "py", false).unwrap_err();
-        assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+        assert!(matches!(err, BoloError::Walk { .. }));
     }
 
     #[test]
