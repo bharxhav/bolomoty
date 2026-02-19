@@ -6,6 +6,7 @@ description = "Parse codebases into dependency DAGs using tree-sitter"
 license = "MIT"
 repository = "https://github.com/bharxhav/bolomoty"
 authors = ["bharxhav"]
+default-run = "bolo"
 
 [[bin]]
 name = "bolo"
