@@ -2,61 +2,13 @@ use bolomoty::api::fs;
 use bolomoty::api::tree_sitter::Lang;
 use bolomoty::api::tree_sitter::py::Python;
 use bolomoty::api::tree_sitter::rs::Rust;
+use bolomoty::cli::{Args, Bolo, LangCmd};
 use bolomoty::consolidate;
 use bolomoty::error::BoloError;
 use bolomoty::pretty;
 
-use clap::{Parser, Subcommand};
-use std::path::PathBuf;
+use clap::Parser;
 use std::process::ExitCode;
-
-// ── CLI ─────────────────────────────────────────────────────────────
-
-#[derive(Parser)]
-#[command(name = "bolo", version, about = "Parse codebases into dependency DAGs")]
-struct Bolo {
-    #[command(subcommand)]
-    lang: LangCmd,
-}
-
-#[derive(Subcommand)]
-enum LangCmd {
-    /// Analyze Python source files
-    Py(Args),
-    /// Analyze Rust source files
-    Rs(Args),
-}
-
-#[derive(Parser)]
-struct Args {
-    /// File or directory to analyze
-    #[arg(default_value = ".")]
-    path: PathBuf,
-
-    /// Output file (omit for stdout)
-    #[arg(short, long)]
-    output: Option<PathBuf>,
-
-    /// Overwrite existing output
-    #[arg(short, long)]
-    force: bool,
-
-    /// Include files ignored by .gitignore
-    #[arg(long)]
-    no_ignore: bool,
-
-    /// Only scan immediate directory (not recursive)
-    #[arg(long)]
-    shallow: bool,
-
-    /// Show file count and exit
-    #[arg(long)]
-    dry_run: bool,
-
-    /// Number of parallel threads (0 = all cores)
-    #[arg(short = 'j', long, default_value = "1")]
-    jobs: usize,
-}
 
 // ── Entry Point ─────────────────────────────────────────────────────
 
@@ -124,8 +76,10 @@ fn run() -> Result<(), BoloError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use bolomoty::cli::{Args, Bolo, LangCmd};
+    use clap::Parser;
     use std::path::Path;
+    use std::path::PathBuf;
 
     fn parse(args: &[&str]) -> Bolo {
         Bolo::try_parse_from(args).unwrap()
