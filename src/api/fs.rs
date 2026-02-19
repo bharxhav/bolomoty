@@ -14,9 +14,25 @@ pub struct File {
     pub rel_path: PathBuf,
 }
 
+const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10 MB
+
 impl File {
     /// Read the file contents into a string.
     pub fn read(&self) -> Result<String, BoloError> {
+        let size = fs::metadata(&self.path)
+            .map_err(|e| BoloError::Read {
+                path: self.path.clone(),
+                reason: e.to_string(),
+            })?
+            .len();
+
+        if size > MAX_FILE_SIZE {
+            return Err(BoloError::Read {
+                path: self.path.clone(),
+                reason: format!("file is {} MB, exceeds 10 MB limit", size / (1024 * 1024)),
+            });
+        }
+
         fs::read_to_string(&self.path).map_err(|e| BoloError::Read {
             path: self.path.clone(),
             reason: e.to_string(),
