@@ -7,7 +7,17 @@ then cleans and consolidates per-file results into a single JSON array.
 
 ## Installation
 
-TBA
+**Quick install** (Linux / macOS):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/bharxhav/bolomoty/main/install.sh | bash
+```
+
+**From source:**
+
+```bash
+cargo install --git https://github.com/bharxhav/bolomoty.git
+```
 
 ## Usage
 
